@@ -218,9 +218,9 @@ aws ecs update-service --cluster ecommerce-qa-cluster --service ecommerce-qa-api
 Modify in `qa.tfvars`:
 
 ```hcl
-desired_count = 4
+desired_count = 2
 min_capacity  = 2
-max_capacity  = 10
+max_capacity  = 4
 ```
 
 Then apply:
