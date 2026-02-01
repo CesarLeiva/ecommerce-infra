@@ -1,0 +1,74 @@
+name: Frontend Deploy to S3/CloudFront
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'package*.json'
+      - '.github/workflows/frontend.yml'
+
+env:
+  AWS_REGION: us-east-1
+  S3_BUCKET: ecommerce-qa-frontend
+  NODE_VERSION: '20'
+
+permissions:
+  id-token: write   # Required for OIDC
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-Frontend
+
+      - name: Deploy to S3
+        run: |
+          aws s3 sync ./dist s3://$S3_BUCKET --delete --cache-control max-age=31536000,public
+
+      - name: Get CloudFront Distribution ID
+        id: cloudfront
+        run: |
+          DIST_ID=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?Origins.Items[?DomainName=='$S3_BUCKET.s3.amazonaws.com']].Id | [0]" \
+            --output text)
+          echo "distribution-id=$DIST_ID" >> $GITHUB_OUTPUT
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ steps.cloudfront.outputs.distribution-id }} \
+            --paths "/*"
+
+      - name: Deployment summary
+        run: |
+          echo "### ✅ Frontend Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**S3 Bucket:** $S3_BUCKET" >> $GITHUB_STEP_SUMMARY
+          echo "**CloudFront:** ${{ steps.cloudfront.outputs.distribution-id }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** $AWS_REGION" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Cache invalidation in progress..." >> $GITHUB_STEP_SUMMARY

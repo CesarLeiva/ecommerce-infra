@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-commerce Infrastructure - AWS Architecture</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>🏗️ E-commerce Infrastructure</h1>
+        <p class="subtitle">AWS Cloud Architecture - QA Environment</p>
+    </header>
+
+    <main>
+        <div class="container">
+            <section class="info-panel">
+                <h2>📊 Infrastructure Overview</h2>
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-number">100</div>
+                        <div class="stat-label">Resources</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">17</div>
+                        <div class="stat-label">Modules</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">2</div>
+                        <div class="stat-label">AZs</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">~$216</div>
+                        <div class="stat-label">Monthly Cost</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="architecture-diagram">
+                <h2>🌐 Architecture Diagram</h2>
+                <div class="diagram">
+                    <!-- Internet Layer -->
+                    <div class="layer internet-layer">
+                        <h3>Internet</h3>
+                        <div class="component cloudfront">
+                            <div class="icon">☁️</div>
+                            <div>CloudFront</div>
+                            <small>d1k77wh56h8rum</small>
+                        </div>
+                    </div>
+
+                    <!-- WAF Layer -->
+                    <div class="layer waf-layer">
+                        <div class="component waf">
+                            <div class="icon">🛡️</div>
+                            <div>WAF</div>
+                            <small>Geo + Bot Protection</small>
+                        </div>
+                    </div>
+
+                    <!-- VPC Layer -->
+                    <div class="layer vpc-layer">
+                        <div class="vpc-container">
+                            <div class="vpc-header">
+                                <h3>VPC: 192.168.0.0/16</h3>
+                                <span class="region">us-east-1</span>
+                            </div>
+
+                            <!-- Public Subnet -->
+                            <div class="subnet public-subnet">
+                                <h4>Public Subnet (2 AZs)</h4>
+                                <div class="components-grid">
+                                    <div class="component alb">
+                                        <div class="icon">⚖️</div>
+                                        <div>ALB</div>
+                                        <small>ecommerce-qa-alb</small>
+                                    </div>
+                                    <div class="component nat">
+                                        <div class="icon">🔀</div>
+                                        <div>NAT Gateway</div>
+                                    </div>
+                                    <div class="component bastion">
+                                        <div class="icon">🖥️</div>
+                                        <div>Bastion</div>
+                                        <small>98.95.176.207</small>
+                                    </div>
+                                    <div class="component igw">
+                                        <div class="icon">🌐</div>
+                                        <div>Internet GW</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- App Subnet -->
+                            <div class="subnet app-subnet">
+                                <h4>App Subnet (2 AZs)</h4>
+                                <div class="components-grid">
+                                    <div class="component ecs">
+                                        <div class="icon">🐳</div>
+                                        <div>ECS Fargate</div>
+                                        <small>2 tasks (ARM64)</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Data Subnet -->
+                            <div class="subnet data-subnet">
+                                <h4>Data Subnet (2 AZs)</h4>
+                                <div class="components-grid">
+                                    <div class="component rds">
+                                        <div class="icon">🗄️</div>
+                                        <div>Aurora PostgreSQL</div>
+                                        <small>db.r6g.large</small>
+                                    </div>
+                                    <div class="component redis">
+                                        <div class="icon">⚡</div>
+                                        <div>ElastiCache Redis</div>
+                                        <small>cache.t3.medium</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Management Layer -->
+                    <div class="layer management-layer">
+                        <h3>Management & Monitoring</h3>
+                        <div class="components-grid">
+                            <div class="component secrets">
+                                <div class="icon">🔐</div>
+                                <div>Secrets Manager</div>
+                            </div>
+                            <div class="component cloudwatch">
+                                <div class="icon">📊</div>
+                                <div>CloudWatch</div>
+                                <small>11 alarms</small>
+                            </div>
+                            <div class="component s3">
+                                <div class="icon">📦</div>
+                                <div>S3 Buckets</div>
+                                <small>Frontend + Logs</small>
+                            </div>
+                            <div class="component kms">
+                                <div class="icon">🔑</div>
+                                <div>KMS</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="resources-list">
+                <h2>📋 Deployed Resources</h2>
+                <div class="resources-grid">
+                    <div class="resource-card">
+                        <h3>Compute</h3>
+                        <ul>
+                            <li>ECS Cluster: ecommerce-qa-cluster</li>
+                            <li>ECS Service: ecommerce-qa-api (2 tasks)</li>
+                            <li>ECR Repository: ecommerce-qa-api</li>
+                            <li>Bastion: t3.micro</li>
+                        </ul>
+                    </div>
+                    <div class="resource-card">
+                        <h3>Database</h3>
+                        <ul>
+                            <li>RDS Cluster: ecommerce-qa-postgres-cluster</li>
+                            <li>Engine: Aurora PostgreSQL 15.8</li>
+                            <li>Instance: db.r6g.large (Graviton2)</li>
+                            <li>Redis: ecommerce-qa-redis</li>
+                        </ul>
+                    </div>
+                    <div class="resource-card">
+                        <h3>Network</h3>
+                        <ul>
+                            <li>VPC: vpc-08f31b52601cf3ca6</li>
+                            <li>ALB: ecommerce-qa-alb</li>
+                            <li>CloudFront: E1LLYBQ0KKAN0H</li>
+                            <li>NAT Gateway: nat-084e07eece0f1f989</li>
+                        </ul>
+                    </div>
+                    <div class="resource-card">
+                        <h3>Security</h3>
+                        <ul>
+                            <li>WAF: CloudFront + ALB</li>
+                            <li>KMS Key: Encryption</li>
+                            <li>Secrets Manager: 3 secrets</li>
+                            <li>Security Groups: 5</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="endpoints">
+                <h2>🔗 Access Points</h2>
+                <div class="endpoint-list">
+                    <div class="endpoint-item">
+                        <strong>Frontend (CloudFront):</strong>
+                        <a href="https://d1k77wh56h8rum.cloudfront.net" target="_blank">https://d1k77wh56h8rum.cloudfront.net</a>
+                    </div>
+                    <div class="endpoint-item">
+                        <strong>API (ALB):</strong>
+                        <a href="http://ecommerce-qa-alb-2083560048.us-east-1.elb.amazonaws.com/api/health" target="_blank">
+                            http://ecommerce-qa-alb-2083560048.us-east-1.elb.amazonaws.com/api/health
+                        </a>
+                    </div>
+                    <div class="endpoint-item">
+                        <strong>Bastion SSH:</strong>
+                        <code>ssh ec2-user@98.95.176.207</code>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer>
+        <p>🚀 Deployed with Terraform | 🏷️ Environment: QA | 📍 Region: us-east-1</p>
+        <p>Last updated: <span id="timestamp"></span></p>
+    </footer>
+
+    <script>
+        document.getElementById('timestamp').textContent = new Date().toLocaleString('es-ES', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    </script>
+</body>
+</html>

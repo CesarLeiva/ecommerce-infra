@@ -1,0 +1,5 @@
+bucket       = "ecommerce-tfstate-586337033154"
+key          = "qa/terraform.tfstate"
+region       = "us-east-1"
+encrypt      = true
+use_lockfile = true
