@@ -270,7 +270,7 @@ aws s3 ls s3://ecommerce-qa-logs/waf/
 
 - **RDS**: Automated daily backups, 7-day retention
 - **ElastiCache**: Daily snapshots, 5-day retention
-- **Terraform State**: Versioned S3 bucket with DynamoDB locking
+- **Terraform State**: Versioned S3 bucket with lockfile enabled
 
 ### Recovery Procedures
 
