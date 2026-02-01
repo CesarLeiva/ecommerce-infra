@@ -11,7 +11,8 @@ This infrastructure deploys a complete microservices-based e-commerce platform o
 - **Load Balancing**: Application Load Balancer with WAF protection
 - **Database**: RDS PostgreSQL with optional read replica
 - **Caching**: ElastiCache Redis for session management and caching
-- **Storage**: S3 for static assets with CloudFront CDN
+- **Frontend**: S3 + CloudFront CDN for static website hosting
+- **Storage**: S3 buckets for application logs and backups
 - **Security**: KMS encryption, Secrets Manager, WAF, CloudTrail
 - **Monitoring**: CloudWatch alarms for services, database, and security events
 - **Cost Management**: AWS Budgets with configurable alert thresholds
