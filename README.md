@@ -9,7 +9,7 @@ This infrastructure deploys a complete microservices-based e-commerce platform o
 - **Networking**: VPC with public, application, and data subnets across multiple AZs
 - **Compute**: ECS Fargate with auto-scaling, ECR for container images
 - **Load Balancing**: Application Load Balancer with WAF protection
-- **Database**: Aurora PostgreSQL cluster with read replica
+- **Database**: RDS PostgreSQL with optional read replica
 - **Caching**: ElastiCache Redis for session management and caching
 - **Storage**: S3 for static assets with CloudFront CDN
 - **Security**: KMS encryption, Secrets Manager, WAF, CloudTrail
@@ -40,7 +40,7 @@ ecommerce-infra/
 │   ├── frontend/          # S3 + CloudFront for static site
 │   ├── kms/               # KMS encryption keys
 │   ├── logs-bucket/       # Centralized S3 logging
-│   ├── rds/               # Aurora PostgreSQL cluster
+│   ├── rds/               # RDS PostgreSQL database
 │   ├── route53/           # DNS records
 │   ├── secrets/           # Secrets Manager
 │   ├── vpc/               # Virtual Private Cloud
@@ -125,18 +125,18 @@ Critical outputs:
 
 ## Cost Estimation
 
-Estimated monthly cost: **~$817 USD**
+Estimated monthly cost: **~$556 USD**
 
 Breakdown:
-- Database (RDS Aurora): $505 (62%) - on-demand pricing with writer + reader instance
-- Networking (NAT Gateway): $82 (10%)
-- Compute (ECS Fargate): $76 (9%)
-- Security (WAF, Secrets): $53 (7%)
-- Monitoring (CloudWatch): $37 (5%)
-- Storage (S3, CloudFront): $36 (4%)
-- Load Balancing: $28 (3%)
+- Database (RDS): $282 (51%) - on-demand single instance
+- Networking (NAT Gateway): $82 (15%)
+- Compute (ECS Fargate): $76 (14%)
+- Security (WAF, Secrets): $53 (10%)
+- Monitoring (CloudWatch): $37 (7%)
+- Storage (S3, CloudFront): $36 (6%)
+- Load Balancing: $28 (5%)
 
-See `COST_ESTIMATION.md` for detailed breakdown.
+See [COST_ESTIMATION.md](docs/COST_ESTIMATION.md) for detailed breakdown.
 
 ## Module Documentation
 
@@ -153,7 +153,7 @@ Each module contains its own README.md with detailed documentation:
 - [Frontend](modules/frontend/README.md) - S3 + CloudFront static site
 - [KMS](modules/kms/README.md) - Encryption key management
 - [Logs Bucket](modules/logs-bucket/README.md) - Centralized logging
-- [RDS](modules/rds/README.md) - Aurora PostgreSQL database
+- [RDS](modules/rds/README.md) - RDS PostgreSQL database
 - [Route53](modules/route53/README.md) - DNS management
 - [Secrets Manager](modules/secrets/README.md) - Credentials storage
 - [VPC](modules/vpc/README.md) - Network infrastructure
@@ -276,10 +276,10 @@ aws s3 ls s3://ecommerce-qa-logs/waf/
 **Database Restore**:
 
 ```bash
-aws rds restore-db-cluster-to-point-in-time \
-  --source-db-cluster-identifier ecommerce-qa-aurora-cluster \
-  --db-cluster-identifier ecommerce-qa-aurora-cluster-restored \
-  --restore-to-time 2026-01-01T12:00:00Z
+aws rds restore-db-instance-to-point-in-time \
+  --source-db-instance-identifier ecommerce-qa-postgres \
+  --target-db-instance-identifier ecommerce-qa-postgres-restored \
+  --restore-time 2026-01-01T12:00:00Z
 ```
 
 **Infrastructure Rebuild**:

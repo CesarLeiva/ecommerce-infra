@@ -166,19 +166,19 @@ output "budget_alerts_sns_topic_name" {
 }
 
 # RDS Outputs
-output "rds_cluster_endpoint" {
-  description = "RDS cluster writer endpoint"
-  value       = module.rds.cluster_endpoint
+output "rds_instance_endpoint" {
+  description = "RDS instance endpoint"
+  value       = module.rds.db_instance_endpoint
 }
 
-output "rds_cluster_reader_endpoint" {
-  description = "RDS cluster reader endpoint"
-  value       = module.rds.cluster_reader_endpoint
+output "rds_instance_address" {
+  description = "RDS instance address"
+  value       = module.rds.db_instance_address
 }
 
-output "rds_cluster_port" {
-  description = "RDS cluster port"
-  value       = module.rds.cluster_port
+output "rds_instance_port" {
+  description = "RDS instance port"
+  value       = module.rds.db_instance_port
 }
 
 output "rds_database_name" {
@@ -186,9 +186,14 @@ output "rds_database_name" {
   value       = module.rds.database_name
 }
 
-output "rds_cluster_id" {
-  description = "RDS cluster ID"
-  value       = module.rds.cluster_id
+output "rds_instance_id" {
+  description = "RDS instance ID"
+  value       = module.rds.db_instance_id
+}
+
+output "rds_replica_endpoint" {
+  description = "RDS read replica endpoint (if enabled)"
+  value       = module.rds.replica_endpoint
 }
 
 # Secrets Manager Outputs

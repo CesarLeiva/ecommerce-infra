@@ -181,7 +181,7 @@ variable "rds_master_username" {
 }
 
 variable "rds_engine_version" {
-  description = "Aurora PostgreSQL engine version"
+  description = "PostgreSQL engine version"
   type        = string
 }
 
@@ -195,13 +195,19 @@ variable "rds_parameter_group_family" {
   type        = string
 }
 
-variable "rds_cluster_parameters" {
-  description = "RDS cluster parameters"
-  type = list(object({
-    name         = string
-    value        = string
-    apply_method = optional(string)
-  }))
+variable "rds_allocated_storage" {
+  description = "Allocated storage in GB"
+  type        = number
+}
+
+variable "rds_storage_type" {
+  description = "Storage type (gp2, gp3, io1, io2)"
+  type        = string
+}
+
+variable "rds_multi_az" {
+  description = "Enable Multi-AZ deployment"
+  type        = bool
 }
 
 variable "rds_db_parameters" {

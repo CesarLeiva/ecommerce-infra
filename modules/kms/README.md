@@ -47,7 +47,7 @@ module "kms" {
 Single KMS key encrypts:
 
 ### Storage
-- **RDS Aurora cluster**: Database storage and automated backups
+- **RDS PostgreSQL instance**: Database storage and automated backups
 - **RDS snapshots**: Manual and automated snapshots
 - **ElastiCache**: Redis data at rest
 - **S3 buckets**: Frontend assets, logs, CloudTrail logs
@@ -125,16 +125,16 @@ aws kms decrypt \
 
 ## Encryption at Rest
 
-### RDS Aurora
+### RDS PostgreSQL
 
 ```hcl
-resource "aws_rds_cluster" "main" {
+resource "aws_db_instance" "main" {
   storage_encrypted = true
   kms_key_id        = module.kms.kms_key_arn
 }
 ```
 
-- Encrypts cluster storage
+- Encrypts instance storage
 - Encrypts automated backups
 - Encrypts manual snapshots
 - Encrypts read replicas

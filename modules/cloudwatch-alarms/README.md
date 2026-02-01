@@ -39,7 +39,7 @@ module "cloudwatch_alarms" {
 
   # RDS Alarms
   enable_rds_alarms     = true
-  rds_cluster_id        = module.rds.cluster_identifier
+  rds_cluster_id        = module.rds.db_instance_identifier
   has_rds_reader        = var.rds_enable_reader
   rds_cpu_threshold     = 80
   

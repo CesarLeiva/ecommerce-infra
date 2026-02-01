@@ -126,7 +126,7 @@ aws s3 sync s3://ecommerce-qa-logs/vpc-flow-logs/ ./flow-logs/
 - Application servers
 
 ### Data Subnets
-- RDS Aurora cluster
+- RDS PostgreSQL instance
 - ElastiCache Redis
 - No direct internet access
 

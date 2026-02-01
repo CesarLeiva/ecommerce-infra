@@ -1,6 +1,6 @@
-# RDS Aurora PostgreSQL Module
+# RDS PostgreSQL Module
 
-Creates an Aurora PostgreSQL cluster with optional read replica for high availability.
+Creates an RDS PostgreSQL instance with optional read replica for high availability.
 
 ## Purpose
 
@@ -8,11 +8,9 @@ Provides a managed relational database with automated backups, encryption, and o
 
 ## Resources Created
 
-- Aurora PostgreSQL cluster
-- Writer instance (primary)
-- Reader instance (optional)
+- RDS PostgreSQL instance (primary)
+- Read replica instance (optional)
 - DB subnet group
-- Cluster parameter group
 - DB parameter group
 - Security group
 - CloudWatch log groups for PostgreSQL logs
@@ -32,10 +30,13 @@ module "rds" {
   database_name              = "ecommerce"
   master_username            = "postgres"
   master_password_secret_arn = module.secrets.rds_password_secret_arn
-  engine_version             = "15.4"
+  engine_version             = "15.8"
   instance_class             = "db.r6g.large"
+  allocated_storage          = 100
+  storage_type               = "gp3"
+  multi_az                   = false
   kms_key_arn               = module.kms.kms_key_arn
-  enable_reader             = true
+  enable_reader             = false
   backup_retention_period   = 7
 }
 ```
@@ -47,9 +48,13 @@ module "rds" {
 | database_name | Database name | string | - |
 | master_username | Master username | string | - |
 | master_password_secret_arn | Secrets Manager ARN | string | - |
-| engine_version | PostgreSQL version | string | "15.4" |
+| engine_version | PostgreSQL version | string | "15.8" |
 | instance_class | Instance type | string | - |
 | parameter_group_family | Parameter group family | string | - |
+| allocated_storage | Allocated storage in GB | number | - |
+| storage_type | Storage type (gp3, gp2, io1, io2) | string | "gp3" |
+| iops | Provisioned IOPS (io1/io2 only) | number | null |
+| multi_az | Enable Multi-AZ deployment | bool | false |
 | enable_reader | Create read replica | bool | false |
 | backup_retention_period | Backup retention days | number | 7 |
 | preferred_backup_window | Backup window | string | "03:00-04:00" |
@@ -63,12 +68,14 @@ module "rds" {
 
 | Name | Description |
 |------|-------------|
-| cluster_id | Cluster identifier |
-| cluster_identifier | Cluster identifier (alias) |
-| cluster_endpoint | Writer endpoint |
-| cluster_reader_endpoint | Reader endpoint |
-| cluster_port | Database port |
-| cluster_arn | Cluster ARN |
+| db_instance_id | Instance identifier |
+| db_instance_identifier | Instance identifier (alias) |
+| db_instance_endpoint | Connection endpoint (host:port) |
+| db_instance_address | Instance address (hostname) |
+| db_instance_port | Database port |
+| db_instance_arn | Instance ARN |
+| replica_id | Read replica identifier (if enabled) |
+| replica_endpoint | Read replica endpoint (if enabled) |
 | security_group_id | Security group ID |
 
 ## Instance Types
@@ -84,235 +91,289 @@ module "rds" {
 
 Use Graviton2 (r6g) for better price/performance with ARM64 ECS tasks.
 
+## Storage Types
+
+### General Purpose SSD (gp3) - Recommended
+- **Baseline**: 3,000 IOPS, 125 MB/s throughput
+- **Configurable**: Up to 16,000 IOPS, 1,000 MB/s
+- **Cost**: ~$0.115/GB-month
+- **Use case**: Most workloads
+
+### General Purpose SSD (gp2)
+- **IOPS**: 3 IOPS per GB (100-16,000 IOPS)
+- **Cost**: ~$0.115/GB-month
+- **Use case**: Legacy applications
+
+### Provisioned IOPS SSD (io1/io2)
+- **IOPS**: Up to 64,000 IOPS (io1), 256,000 IOPS (io2)
+- **Cost**: ~$0.125/GB-month + $0.10/IOPS-month
+- **Use case**: I/O intensive workloads
+
 ## High Availability
+
+### Multi-AZ Deployment
+
+When `multi_az = true`:
+- Standby instance in different AZ
+- Automatic failover in 1-2 minutes
+- Synchronous replication to standby
+- Same endpoint after failover
+- Higher cost (~2x instance price)
 
 ### Read Replica
 
 When `enable_reader = true`:
-- Second instance in different AZ
-- Automatic failover in <30 seconds
-- Read-only endpoint for query offloading
-- Synchronous replication from writer
+- Separate read-only instance
+- Asynchronous replication from primary
+- Different endpoint for read traffic
+- Can be in same or different AZ
+- Does NOT provide automatic failover
+- Can be manually promoted to standalone instance
 
-### Multi-AZ Deployment
+**Note**: Multi-AZ and Read Replica serve different purposes:
+- **Multi-AZ**: High availability and disaster recovery
+- **Read Replica**: Read scaling and workload distribution
 
-Cluster spans multiple availability zones:
-- Writer in one AZ
-- Reader in different AZ
-- Automatic failover to reader on writer failure
-
-## Backup Strategy
+## Backup and Recovery
 
 ### Automated Backups
 
-- Daily backups during backup window
-- Retention: 7-35 days (configurable)
-- Point-in-time recovery to any second within retention period
-- Stored in S3 (encrypted)
+- Daily snapshots during backup window
+- Transaction logs backed up every 5 minutes
+- Point-in-time recovery (PITR) to any second
+- Retention: 1-35 days (default: 7)
 
 ### Manual Snapshots
 
-Create manual snapshot:
-
 ```bash
-aws rds create-db-cluster-snapshot \
-  --db-cluster-identifier ecommerce-qa-aurora-cluster \
-  --db-cluster-snapshot-identifier manual-snapshot-$(date +%Y%m%d)
+# Create snapshot
+aws rds create-db-snapshot \
+  --db-instance-identifier ecommerce-qa-postgres \
+  --db-snapshot-identifier ecommerce-qa-manual-backup-$(date +%Y%m%d)
+
+# List snapshots
+aws rds describe-db-snapshots \
+  --db-instance-identifier ecommerce-qa-postgres
+
+# Restore from snapshot
+aws rds restore-db-instance-from-db-snapshot \
+  --db-instance-identifier ecommerce-qa-postgres-restored \
+  --db-snapshot-identifier ecommerce-qa-manual-backup-20260115
 ```
 
-### Final Snapshot
+### Point-in-Time Recovery
 
-On cluster deletion, final snapshot is created (unless `skip_final_snapshot = true`).
+```bash
+# Restore to specific time
+aws rds restore-db-instance-to-point-in-time \
+  --source-db-instance-identifier ecommerce-qa-postgres \
+  --target-db-instance-identifier ecommerce-qa-postgres-pitr \
+  --restore-time 2026-01-15T12:00:00Z
+
+# Restore to latest restorable time
+aws rds restore-db-instance-to-point-in-time \
+  --source-db-instance-identifier ecommerce-qa-postgres \
+  --target-db-instance-identifier ecommerce-qa-postgres-latest \
+  --use-latest-restorable-time
+```
+
+## Performance Optimization
+
+### Performance Insights
+
+When enabled (`enable_performance_insights = true`):
+- 7-day retention (free tier)
+- Query-level performance metrics
+- Wait event analysis
+- Database load monitoring
+
+Access via AWS Console → RDS → Performance Insights
+
+### Enhanced Monitoring
+
+- OS-level metrics (CPU, memory, disk I/O)
+- Process list
+- 1-60 second granularity (default: 60)
+- CloudWatch Logs integration
+
+### Parameter Tuning
+
+Common PostgreSQL parameters in parameter group:
+
+```hcl
+rds_instance_parameters = [
+  {
+    name  = "shared_buffers"
+    value = "{DBInstanceClassMemory/32768}"  # 25% of RAM
+  },
+  {
+    name  = "max_connections"
+    value = "200"
+  },
+  {
+    name  = "work_mem"
+    value = "16384"  # 16 MB
+  },
+  {
+    name  = "maintenance_work_mem"
+    value = "524288"  # 512 MB
+  },
+  {
+    name  = "effective_cache_size"
+    value = "{DBInstanceClassMemory/10922}"  # 75% of RAM
+  }
+]
+```
 
 ## Security
 
 ### Encryption
 
-- **At Rest**: AES-256 encryption using KMS
+- **At Rest**: KMS encryption for storage, snapshots, and replicas
 - **In Transit**: SSL/TLS enforced via parameter group
-- **Backup Encryption**: Automatic with same KMS key
 
 ### Network Isolation
 
-- Deployed in data subnets (no internet access)
-- Security group allows traffic only from application tier
-- No public endpoint
+- Private subnets only (no public access)
+- Security group restricts access to application tier
+- VPC endpoints for AWS service communication
 
-### Password Management
+### Access Control
 
-Master password stored in AWS Secrets Manager:
-- Encrypted with KMS
-- Automatic rotation (optional)
-- Retrieved by applications at runtime
+```bash
+# Connect from bastion host
+psql -h <db-instance-endpoint> -U postgres -d ecommerce
+
+# Verify SSL connection
+psql -h <db-instance-endpoint> -U postgres -d ecommerce -c "SHOW ssl;"
+```
 
 ## Monitoring
 
 ### CloudWatch Metrics
 
+Key metrics:
 - **CPUUtilization**: CPU usage percentage
 - **DatabaseConnections**: Active connections
 - **FreeableMemory**: Available RAM
-- **ReadLatency**: Read operation latency
-- **WriteLatency**: Write operation latency
-- **AuroraReplicaLag**: Replication lag (reader)
-
-### Enhanced Monitoring
-
-Enabled by default (60-second granularity):
-- OS-level metrics
-- Process activity
-- File system usage
-
-### Performance Insights
-
-Enabled by default:
-- Query performance analysis
-- Wait event analysis
-- Database load monitoring
-- 7-day data retention (free tier)
+- **ReadLatency/WriteLatency**: I/O latency
+- **ReadThroughput/WriteThroughput**: Disk throughput
+- **ReadIOPS/WriteIOPS**: I/O operations per second
 
 ### Logs
 
 PostgreSQL logs exported to CloudWatch:
-- Error logs
-- Slow query logs
-- General logs (if enabled)
+- `postgresql.log`: General database activity
+- Query errors and slow queries
 
-## Connection
-
-### From ECS Tasks
-
-Use cluster endpoint for read/write operations:
-
-```javascript
-const connectionString = `postgresql://${username}:${password}@${endpoint}:5432/${database}`;
-```
-
-Retrieve credentials from Secrets Manager:
-
-```javascript
-const secret = await secretsmanager.getSecretValue({ SecretId: 'rds-password' }).promise();
-const { username, password } = JSON.parse(secret.SecretString);
-```
-
-### From Bastion
-
+View logs:
 ```bash
-# Retrieve password
-aws secretsmanager get-secret-value --secret-id ecommerce-qa-rds-password \
-  --query SecretString --output text | jq -r .password
-
-# Connect
-psql -h ecommerce-qa-aurora-cluster.cluster-xxxxx.us-east-1.rds.amazonaws.com \
-     -U postgres -d ecommerce
+aws logs tail /aws/rds/instance/ecommerce-qa-postgres/postgresql --follow
 ```
 
 ## Maintenance
 
+### Maintenance Window
+
+- Default: Sunday 04:00-05:00 UTC
+- Engine updates applied automatically (if enabled)
+- Minor version upgrades: automatic
+- Major version upgrades: manual only
+
 ### Version Upgrades
 
-Minor version upgrades automatic if `auto_minor_version_upgrade = true`.
-
-For major version upgrades:
-
-1. Test on snapshot-restored cluster
-2. Update `engine_version` in `qa.tfvars`
-3. Apply during maintenance window
-
-### Parameter Changes
-
-Static parameters require instance reboot. Dynamic parameters apply immediately.
-
-### Scaling
-
-#### Vertical Scaling (Instance Size)
-
-Update `instance_class` in `qa.tfvars`:
-
-```hcl
-rds_instance_class = "db.r6g.xlarge"
-```
-
-Causes brief downtime during instance replacement.
-
-#### Horizontal Scaling (Read Replicas)
-
-Enable reader:
-
-```hcl
-rds_enable_reader = true
-```
-
-Add additional readers by modifying module code (not supported by default).
-
-## Disaster Recovery
-
-### Point-in-Time Restore
-
-Restore to specific timestamp:
-
 ```bash
-aws rds restore-db-cluster-to-point-in-time \
-  --source-db-cluster-identifier ecommerce-qa-aurora-cluster \
-  --db-cluster-identifier ecommerce-qa-aurora-restored \
-  --restore-to-time 2026-01-01T12:00:00Z
+# Check available versions
+aws rds describe-db-engine-versions \
+  --engine postgres \
+  --engine-version 15.8
+
+# Modify instance version
+aws rds modify-db-instance \
+  --db-instance-identifier ecommerce-qa-postgres \
+  --engine-version 16.2 \
+  --apply-immediately
 ```
-
-### Cross-Region Replication
-
-Not configured by default. To enable:
-
-1. Create replica cluster in secondary region
-2. Configure replication from primary
-3. Promote replica on disaster
 
 ## Cost Optimization
 
-### Reserved Instances
+### Recommendations
 
-For production, purchase 1-year Reserved Instances:
-- db.r6g.large: $0.171/hour (40% savings)
-- Annual cost: $1,498 (vs $2,524 on-demand)
+1. **Right-size instances**: Monitor CPU/Memory, downsize if consistently low
+2. **Use gp3 storage**: Better performance than gp2 at same price
+3. **Optimize backup retention**: Balance between cost and recovery needs
+4. **Disable Multi-AZ in non-prod**: Use read replica instead if high availability not critical
+5. **Delete unused snapshots**: Manual snapshots accumulate storage costs
+6. **Use Reserved Instances**: 1-year commitment saves ~30%, 3-year saves ~60%
 
-### Aurora Serverless Alternative
+### Cost Breakdown (db.r6g.large, 100 GB gp3, Multi-AZ disabled)
 
-For variable workloads, consider Aurora Serverless v2:
-- Auto-scales based on load
-- Pay per ACU (Aurora Capacity Unit)
-- No reader replica needed
+- Instance: ~$208/month (on-demand)
+- Storage: ~$12/month (100 GB gp3)
+- Backups: ~$12/month (100 GB, 7-day retention)
+- **Total**: ~$232/month
+
+With Multi-AZ enabled: ~$440/month
 
 ## Troubleshooting
 
-### High CPU Usage
+### Connection Issues
 
-Check slow queries in Performance Insights. Optimize indexes:
+```bash
+# Test network connectivity
+telnet <db-endpoint> 5432
 
-```sql
-SELECT schemaname, tablename, indexname 
-FROM pg_indexes 
-WHERE schemaname NOT IN ('pg_catalog', 'information_schema');
+# Check security group rules
+aws ec2 describe-security-groups \
+  --group-ids <rds-security-group-id>
+
+# Verify instance status
+aws rds describe-db-instances \
+  --db-instance-identifier ecommerce-qa-postgres
 ```
 
-### Connection Limit Reached
+### Performance Issues
 
-Increase max_connections parameter or check for connection leaks in application.
+1. Check CPU/Memory metrics in CloudWatch
+2. Review slow query log
+3. Analyze Performance Insights for top queries
+4. Check for missing indexes
+5. Review connection pool settings
 
-### Replication Lag
+### Common Errors
 
-Check `AuroraReplicaLag` metric. Causes:
-- Heavy write load
-- Long-running transactions
-- Large queries on reader
+**Error**: "too many connections"
+- **Solution**: Increase `max_connections` parameter or optimize connection pooling
 
-## Dependencies
+**Error**: "out of memory"
+- **Solution**: Reduce `work_mem` or upgrade instance class
 
-- VPC module (data subnets)
-- Secrets Manager module (master password)
-- KMS module (encryption key)
-- Compute module security group (network access)
+**Error**: "disk full"
+- **Solution**: Enable storage autoscaling or increase `allocated_storage`
 
-## Used By
+## Migration from Aurora
 
-- Compute module (database connection)
-- Bastion module (administrative access)
-- CloudWatch Alarms module (monitoring)
+If migrating from Aurora PostgreSQL to RDS PostgreSQL:
+
+1. **Export Aurora data**:
+```bash
+pg_dump -h <aurora-endpoint> -U postgres -d ecommerce -f dump.sql
+```
+
+2. **Import to RDS**:
+```bash
+psql -h <rds-endpoint> -U postgres -d ecommerce -f dump.sql
+```
+
+3. **Update application connection strings**
+4. **Test application thoroughly**
+5. **Decommission Aurora cluster**
+
+**Note**: This migration will incur downtime. Plan maintenance window accordingly.
+
+## References
+
+- [Amazon RDS for PostgreSQL](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_PostgreSQL.html)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/15/index.html)
+- [RDS Best Practices](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_BestPractices.html)
+- [RDS Pricing](https://aws.amazon.com/rds/postgresql/pricing/)

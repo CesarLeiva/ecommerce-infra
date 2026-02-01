@@ -18,17 +18,16 @@
 - **Bastion (t3.micro)**: $0.0104/hora × 730h + 20GB EBS = $9.19/mes
 - Subtotal: **$76/mes**
 
-### Database (~$505/mes) - On-Demand Pricing with Read Replica
-- **RDS Aurora PostgreSQL (db.r6g.large)**:
-  - Writer instance: $0.29/hora × 730h = $211.70/mes
-  - Reader instance (read replica): $0.29/hora × 730h = $211.70/mes
-  - Storage: 100GB × $0.10/GB = $10/mes
-  - I/O requests: ~$20/mes
-  - Backup storage: 50GB × $0.021/GB = $1.05/mes
+### Database (~$270/mes) - On-Demand Pricing (Single Instance)
+- **RDS PostgreSQL (db.r6g.large)**:
+  - Primary instance: $0.288/hora × 730h = $210.24/mes
+  - Storage: 100GB gp3 × $0.115/GB = $11.50/mes
+  - Backup storage: 100GB × $0.095/GB = $9.50/mes
+  - I/O requests: Included with gp3
 - **ElastiCache Redis (cache.t3.medium)**:
   - Instance: $0.068/hora × 730h = $49.64/mes
   - Backup: 10GB × $0.085/GB = $0.85/mes
-- Subtotal: **$505/mes** (on-demand, includes writer + reader instances)
+- Subtotal: **$282/mes** (single instance, QA environment)
 
 ### Storage & CDN (~$36/mes)
 - **S3**:
@@ -67,21 +66,23 @@
 
 ---
 
-## TOTAL ESTIMADO MENSUAL: **~$817/mes**
+## TOTAL ESTIMADO MENSUAL: **~$556/mes**
 
 ### Desglose por Categoría:
-1. **Database**: $505/mes (62%) - on-demand with writer + reader instances
-2. **Networking**: $82/mes (10%)
-3. **Compute**: $76/mes (9%)
-4. **Security**: $53/mes (7%)
-5. **Monitoring**: $37/mes (5%)
-6. **Storage & CDN**: $36/mes (4%)
-7. **Load Balancing**: $28/mes (3%)
+1. **Database**: $282/mes (51%) - on-demand single instance
+2. **Networking**: $82/mes (15%)
+3. **Compute**: $76/mes (14%)
+4. **Security**: $53/mes (10%)
+5. **Monitoring**: $37/mes (7%)
+6. **Storage & CDN**: $36/mes (6%)
+7. **Load Balancing**: $28/mes (5%)
 
 ### Notas:
-- Costos basados en precios de AWS us-east-1 (febrero 2026)
+- Costos basados en precios de AWS us-east-1 (enero 2026)
 - Estimaciones asumen tráfico moderado (~100GB/mes egress, 1M requests/mes)
 - CloudTrail deshabilitado (enable_cloudtrail=false)
+- RDS PostgreSQL en configuración single-AZ para QA (no Multi-AZ)
 - Costos pueden variar según uso real
 - No incluye costos de transferencia de datos entre AZs (~1-2% adicional)
-- Sugerencia: Considerar Reserved Instances para RDS (ahorro ~40% = $169/mes)
+- **Ahorro vs Aurora**: ~$223/mes (reducción del 29%)
+- Sugerencia: Considerar Reserved Instances para RDS (ahorro ~30% adicional = $63/mes)

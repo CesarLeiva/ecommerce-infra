@@ -185,13 +185,13 @@ resource "aws_cloudwatch_metric_alarm" "rds_cpu_high" {
   period              = 300
   statistic           = "Average"
   threshold           = var.rds_cpu_threshold
-  alarm_description   = "RDS cluster CPU utilization is above ${var.rds_cpu_threshold}%"
+  alarm_description   = "RDS instance CPU utilization is above ${var.rds_cpu_threshold}%"
   alarm_actions       = [aws_sns_topic.alarms.arn]
   ok_actions          = [aws_sns_topic.alarms.arn]
   treat_missing_data  = "notBreaching"
 
   dimensions = {
-    DBClusterIdentifier = var.rds_cluster_id
+    DBInstanceIdentifier = var.rds_cluster_id
   }
 
   tags = {
@@ -212,13 +212,13 @@ resource "aws_cloudwatch_metric_alarm" "rds_connections_high" {
   period              = 300
   statistic           = "Average"
   threshold           = var.rds_connections_threshold
-  alarm_description   = "RDS cluster has more than ${var.rds_connections_threshold} database connections"
+  alarm_description   = "RDS instance has more than ${var.rds_connections_threshold} database connections"
   alarm_actions       = [aws_sns_topic.alarms.arn]
   ok_actions          = [aws_sns_topic.alarms.arn]
   treat_missing_data  = "notBreaching"
 
   dimensions = {
-    DBClusterIdentifier = var.rds_cluster_id
+    DBInstanceIdentifier = var.rds_cluster_id
   }
 
   tags = {
@@ -239,13 +239,13 @@ resource "aws_cloudwatch_metric_alarm" "rds_freeable_memory_low" {
   period              = 300
   statistic           = "Average"
   threshold           = var.rds_freeable_memory_threshold
-  alarm_description   = "RDS cluster freeable memory is below ${var.rds_freeable_memory_threshold / 1024 / 1024 / 1024} GB"
+  alarm_description   = "RDS instance freeable memory is below ${var.rds_freeable_memory_threshold / 1024 / 1024 / 1024} GB"
   alarm_actions       = [aws_sns_topic.alarms.arn]
   ok_actions          = [aws_sns_topic.alarms.arn]
   treat_missing_data  = "notBreaching"
 
   dimensions = {
-    DBClusterIdentifier = var.rds_cluster_id
+    DBInstanceIdentifier = var.rds_cluster_id
   }
 
   tags = {
@@ -261,18 +261,18 @@ resource "aws_cloudwatch_metric_alarm" "rds_replica_lag" {
   alarm_name          = "${var.prefix}-${var.env}-rds-replica-lag-high"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
-  metric_name         = "AuroraReplicaLag"
+  metric_name         = "ReplicaLag"
   namespace           = "AWS/RDS"
   period              = 300
   statistic           = "Average"
   threshold           = var.rds_replica_lag_threshold
-  alarm_description   = "RDS replica lag is above ${var.rds_replica_lag_threshold} milliseconds"
+  alarm_description   = "RDS replica lag is above ${var.rds_replica_lag_threshold} seconds"
   alarm_actions       = [aws_sns_topic.alarms.arn]
   ok_actions          = [aws_sns_topic.alarms.arn]
   treat_missing_data  = "notBreaching"
 
   dimensions = {
-    DBClusterIdentifier = var.rds_cluster_id
+    DBInstanceIdentifier = var.rds_cluster_id
   }
 
   tags = {

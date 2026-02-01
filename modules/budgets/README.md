@@ -52,7 +52,7 @@ Tracks total AWS spending across all services.
 ### 2. Database Budget
 
 Tracks:
-- Amazon RDS (Aurora PostgreSQL)
+- Amazon RDS (PostgreSQL)
 - Amazon ElastiCache (Redis)
 
 ### 3. Compute Budget

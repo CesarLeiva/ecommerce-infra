@@ -68,7 +68,7 @@ module "secrets" {
 ```
 
 **Used By**:
-- RDS Aurora cluster for master user authentication
+- RDS PostgreSQL instance for master user authentication
 - ECS tasks connecting to database
 - Bastion host for administrative access
 

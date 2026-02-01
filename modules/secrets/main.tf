@@ -83,11 +83,11 @@ resource "aws_secretsmanager_secret_version" "bastion" {
     instance_id = var.bastion_instance_id
     private_ip  = var.bastion_private_ip
     public_ip   = var.bastion_public_ip
-    elastic_ip  = var.bastion_elastic_ip
+    elastic_ip  = var.bastion_elastic_ip != null ? var.bastion_elastic_ip : ""
     key_name    = var.bastion_key_name
     private_key = var.bastion_private_key
     public_key  = var.bastion_public_key
     ssh_user    = "ec2-user"
-    ssh_command = var.bastion_elastic_ip != "" ? "ssh -i bastion-key.pem ec2-user@${var.bastion_elastic_ip}" : "ssh -i bastion-key.pem ec2-user@${var.bastion_public_ip}"
+    ssh_command = var.bastion_elastic_ip != null && var.bastion_elastic_ip != "" ? "ssh -i bastion-key.pem ec2-user@${var.bastion_elastic_ip}" : "ssh -i bastion-key.pem ec2-user@${var.bastion_public_ip}"
   })
 }

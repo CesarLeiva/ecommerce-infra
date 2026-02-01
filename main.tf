@@ -227,7 +227,9 @@ module "rds" {
   engine_version               = var.rds_engine_version
   instance_class               = var.rds_instance_class
   parameter_group_family       = var.rds_parameter_group_family
-  cluster_parameters           = var.rds_cluster_parameters
+  allocated_storage            = var.rds_allocated_storage
+  storage_type                 = var.rds_storage_type
+  multi_az                     = var.rds_multi_az
   db_parameters                = var.rds_db_parameters
   backup_retention_period      = var.rds_backup_retention_period
   preferred_backup_window      = var.rds_preferred_backup_window
@@ -254,11 +256,11 @@ module "secrets" {
   # RDS
   db_username = module.rds.master_username
   db_password = module.rds.master_password
-  db_engine   = "aurora-postgresql"
-  db_host     = module.rds.cluster_endpoint
-  db_port     = module.rds.cluster_port
+  db_engine   = "postgres"
+  db_host     = module.rds.db_instance_address
+  db_port     = module.rds.db_instance_port
   db_name     = module.rds.database_name
-  db_endpoint = module.rds.cluster_endpoint
+  db_endpoint = module.rds.db_instance_endpoint
 
   # Redis
   redis_primary_endpoint       = var.enable_elasticache ? module.elasticache[0].primary_endpoint_address : ""
@@ -344,7 +346,7 @@ module "cloudwatch_alarms" {
 
   # RDS Alarms
   enable_rds_alarms             = true
-  rds_cluster_id                = module.rds.cluster_identifier
+  rds_cluster_id                = module.rds.db_instance_identifier
   has_rds_reader                = var.rds_enable_reader
   rds_cpu_threshold             = var.rds_cpu_threshold
   rds_connections_threshold     = var.rds_connections_threshold

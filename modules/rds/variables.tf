@@ -59,16 +59,6 @@ variable "parameter_group_family" {
   type        = string
 }
 
-variable "cluster_parameters" {
-  description = "List of cluster parameters"
-  type = list(object({
-    name         = string
-    value        = string
-    apply_method = optional(string)
-  }))
-  default = []
-}
-
 variable "db_parameters" {
   description = "List of DB parameters"
   type = list(object({
@@ -77,6 +67,30 @@ variable "db_parameters" {
     apply_method = optional(string)
   }))
   default = []
+}
+
+variable "allocated_storage" {
+  description = "Allocated storage in GB"
+  type        = number
+  default     = 100
+}
+
+variable "storage_type" {
+  description = "Storage type (gp2, gp3, io1, io2)"
+  type        = string
+  default     = "gp3"
+}
+
+variable "iops" {
+  description = "IOPS for io1/io2 storage type"
+  type        = number
+  default     = null
+}
+
+variable "multi_az" {
+  description = "Enable Multi-AZ deployment"
+  type        = bool
+  default     = false
 }
 
 variable "backup_retention_period" {

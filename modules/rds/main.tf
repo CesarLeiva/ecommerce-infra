@@ -26,7 +26,7 @@ resource "aws_db_subnet_group" "main" {
 # Security Group for RDS
 resource "aws_security_group" "rds" {
   name        = "${var.prefix}-${var.env}-rds-sg"
-  description = "Security group for RDS PostgreSQL cluster"
+  description = "Security group for RDS PostgreSQL database"
   vpc_id      = var.vpc_id
 
   ingress {
@@ -64,28 +64,6 @@ resource "aws_security_group" "rds" {
   }
 }
 
-# RDS Cluster Parameter Group
-resource "aws_rds_cluster_parameter_group" "main" {
-  name        = "${var.prefix}-${var.env}-cluster-pg"
-  family      = var.parameter_group_family
-  description = "Cluster parameter group for ${var.prefix}-${var.env}"
-
-  dynamic "parameter" {
-    for_each = var.cluster_parameters
-    content {
-      name         = parameter.value.name
-      value        = parameter.value.value
-      apply_method = lookup(parameter.value, "apply_method", "immediate")
-    }
-  }
-
-  tags = {
-    Name        = "${var.prefix}-${var.env}-cluster-pg"
-    Environment = var.env
-    ManagedBy   = "Terraform"
-  }
-}
-
 # RDS DB Parameter Group
 resource "aws_db_parameter_group" "main" {
   name        = "${var.prefix}-${var.env}-db-pg"
@@ -108,36 +86,53 @@ resource "aws_db_parameter_group" "main" {
   }
 }
 
-# RDS Cluster
-resource "aws_rds_cluster" "main" {
-  cluster_identifier     = "${var.prefix}-${var.env}-postgres-cluster"
-  engine                 = "aurora-postgresql"
-  engine_version         = var.engine_version
-  database_name          = var.database_name
-  master_username        = var.master_username
-  master_password        = random_password.db_password.result
-  port                   = 5432
-  db_subnet_group_name   = aws_db_subnet_group.main.name
-  vpc_security_group_ids = [aws_security_group.rds.id]
+# RDS Instance - Primary
+resource "aws_db_instance" "main" {
+  identifier     = "${var.prefix}-${var.env}-postgres"
+  engine         = "postgres"
+  engine_version = var.engine_version
 
-  db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.main.name
-
+  instance_class    = var.instance_class
+  allocated_storage = var.allocated_storage
+  storage_type      = var.storage_type
   storage_encrypted = true
   kms_key_id        = var.kms_key_arn
+  iops              = var.storage_type == "io1" || var.storage_type == "io2" ? var.iops : null
+
+  db_name  = var.database_name
+  username = var.master_username
+  password = random_password.db_password.result
+  port     = 5432
+
+  db_subnet_group_name   = aws_db_subnet_group.main.name
+  vpc_security_group_ids = [aws_security_group.rds.id]
+  parameter_group_name   = aws_db_parameter_group.main.name
+
+  publicly_accessible = false
+  multi_az            = var.multi_az
 
   backup_retention_period      = var.backup_retention_period
-  preferred_backup_window      = var.preferred_backup_window
-  preferred_maintenance_window = var.preferred_maintenance_window
+  backup_window                = var.preferred_backup_window
+  maintenance_window           = var.preferred_maintenance_window
+  skip_final_snapshot          = var.skip_final_snapshot
+  final_snapshot_identifier    = var.skip_final_snapshot ? null : "${var.prefix}-${var.env}-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
+  copy_tags_to_snapshot        = true
+  delete_automated_backups     = true
+  deletion_protection          = var.deletion_protection
+  auto_minor_version_upgrade   = var.auto_minor_version_upgrade
+  apply_immediately            = false
 
-  enabled_cloudwatch_logs_exports = ["postgresql"]
+  enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
 
-  skip_final_snapshot       = var.skip_final_snapshot
-  final_snapshot_identifier = var.skip_final_snapshot ? null : "${var.prefix}-${var.env}-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
+  monitoring_interval = var.monitoring_interval
+  monitoring_role_arn = var.monitoring_interval > 0 ? aws_iam_role.rds_monitoring[0].arn : null
 
-  deletion_protection = var.deletion_protection
+  performance_insights_enabled          = var.enable_performance_insights
+  performance_insights_kms_key_id       = var.enable_performance_insights ? var.kms_key_arn : null
+  performance_insights_retention_period = var.enable_performance_insights ? 7 : null
 
   tags = {
-    Name        = "${var.prefix}-${var.env}-postgres-cluster"
+    Name        = "${var.prefix}-${var.env}-postgres"
     Environment = var.env
     ManagedBy   = "Terraform"
   }
@@ -147,57 +142,31 @@ resource "aws_rds_cluster" "main" {
   }
 }
 
-# RDS Cluster Instance - Writer
-resource "aws_rds_cluster_instance" "writer" {
-  identifier              = "${var.prefix}-${var.env}-postgres-writer"
-  cluster_identifier      = aws_rds_cluster.main.id
-  instance_class          = var.instance_class
-  engine                  = aws_rds_cluster.main.engine
-  engine_version          = aws_rds_cluster.main.engine_version
-  db_parameter_group_name = aws_db_parameter_group.main.name
-
-  publicly_accessible = false
-
-  monitoring_interval = var.monitoring_interval
-  monitoring_role_arn = var.monitoring_interval > 0 ? aws_iam_role.rds_monitoring[0].arn : null
-
-  performance_insights_enabled    = var.enable_performance_insights
-  performance_insights_kms_key_id = var.enable_performance_insights ? var.kms_key_arn : null
-
-  auto_minor_version_upgrade = var.auto_minor_version_upgrade
-
-  tags = {
-    Name        = "${var.prefix}-${var.env}-postgres-writer"
-    Role        = "Writer"
-    Environment = var.env
-    ManagedBy   = "Terraform"
-  }
-}
-
-# RDS Cluster Instance - Reader (optional)
-resource "aws_rds_cluster_instance" "reader" {
+# RDS Instance - Read Replica (optional)
+resource "aws_db_instance" "replica" {
   count = var.enable_reader ? 1 : 0
 
-  identifier              = "${var.prefix}-${var.env}-postgres-reader"
-  cluster_identifier      = aws_rds_cluster.main.id
-  instance_class          = var.instance_class
-  engine                  = aws_rds_cluster.main.engine
-  engine_version          = aws_rds_cluster.main.engine_version
-  db_parameter_group_name = aws_db_parameter_group.main.name
+  identifier     = "${var.prefix}-${var.env}-postgres-replica"
+  replicate_source_db = aws_db_instance.main.identifier
 
-  publicly_accessible = false
+  instance_class    = var.instance_class
+  storage_encrypted = true
+  kms_key_id        = var.kms_key_arn
+
+  publicly_accessible        = false
+  auto_minor_version_upgrade = var.auto_minor_version_upgrade
+  apply_immediately          = false
 
   monitoring_interval = var.monitoring_interval
   monitoring_role_arn = var.monitoring_interval > 0 ? aws_iam_role.rds_monitoring[0].arn : null
 
-  performance_insights_enabled    = var.enable_performance_insights
-  performance_insights_kms_key_id = var.enable_performance_insights ? var.kms_key_arn : null
-
-  auto_minor_version_upgrade = var.auto_minor_version_upgrade
+  performance_insights_enabled          = var.enable_performance_insights
+  performance_insights_kms_key_id       = var.enable_performance_insights ? var.kms_key_arn : null
+  performance_insights_retention_period = var.enable_performance_insights ? 7 : null
 
   tags = {
-    Name        = "${var.prefix}-${var.env}-postgres-reader"
-    Role        = "Reader"
+    Name        = "${var.prefix}-${var.env}-postgres-replica"
+    Role        = "ReadReplica"
     Environment = var.env
     ManagedBy   = "Terraform"
   }

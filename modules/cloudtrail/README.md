@@ -101,16 +101,16 @@ Each event includes:
   },
   "eventTime": "2026-01-15T10:30:00Z",
   "eventSource": "rds.amazonaws.com",
-  "eventName": "CreateDBCluster",
+  "eventName": "CreateDBInstance",
   "awsRegion": "us-east-1",
   "sourceIPAddress": "203.0.113.50",
   "userAgent": "aws-cli/2.9.0",
   "requestParameters": {
-    "dBClusterIdentifier": "ecommerce-qa-cluster",
-    "engine": "aurora-postgresql"
+    "dBInstanceIdentifier": "ecommerce-qa-postgres",
+    "engine": "postgres"
   },
   "responseElements": {
-    "dBClusterArn": "arn:aws:rds:us-east-1:123456789012:cluster:ecommerce-qa-cluster"
+    "dBInstanceArn": "arn:aws:rds:us-east-1:123456789012:db:ecommerce-qa-postgres"
   },
   "requestID": "abc-123-def-456",
   "eventID": "unique-event-id",
