@@ -64,11 +64,11 @@ ecommerce-infra/
 Edit `environments/qa.tfbackend` with your S3 bucket for remote state:
 
 ```hcl
-bucket         = "your-terraform-state-bucket"
-key            = "ecommerce/qa/terraform.tfstate"
-region         = "us-east-1"
-dynamodb_table = "terraform-state-lock"
-encrypt        = true
+bucket       = "your-terraform-state-bucket"
+key          = "qa/terraform.tfstate"
+region       = "us-east-1"
+encrypt      = true
+use_lockfile = true
 ```
 
 ### 2. Configure Environment
